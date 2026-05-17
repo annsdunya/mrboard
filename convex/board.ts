@@ -1,0 +1,101 @@
+import { v } from "convex/values";
+import { mutation } from "./_generated/server";
+
+const images = [
+  "placeholders/1.svg",
+  "placeholders/2.svg",
+  "placeholders/3.svg",
+  "placeholders/4.svg",
+  "placeholders/5.svg",
+  "placeholders/6.svg",
+  "placeholders/7.svg",
+  "placeholders/8.svg",
+  "placeholders/9.svg",
+  "placeholders/10.svg",
+]
+
+export const create = mutation({
+  args: {
+    orgId: v.string(),
+    title: v.string()
+  },
+  handler: async (ctx, { orgId, title }) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if(!identity) {
+      throw new Error("Unauthorized")
+    }
+
+    const randomImage = images[Math.floor(Math.random() * images.length)]
+
+    const board  = await ctx.db.insert("boards", {
+      orgId,
+      title,
+      authorId: identity.subject,
+      authorName: identity.name! ,
+      imageUrl: randomImage
+    })
+    return board
+  }
+})
+
+export const remove = mutation({
+  args: {
+    id: v.id("boards")
+  },
+  handler: async (ctx, { id }) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if(!identity) {
+      throw new Error("Unauthorized")
+    }
+
+    const board = await ctx.db.get(id)
+
+    if(!board) {
+      throw new Error("Board not found")
+    }
+
+    if(board.authorId !== identity.subject) {
+      throw new Error("Unauthorized")
+    }
+    
+    await ctx.db.delete(id)
+  }
+})
+
+export const update = mutation({
+  args: {
+    id: v.id("boards"),
+    title: v.string()
+  },
+  handler: async (ctx, { id, title }) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if(!identity) {
+      throw new Error("Unauthorized")
+    }
+
+    const board = await ctx.db.get(id)
+
+    if(!board) {
+      throw new Error("Board not found")
+    }
+
+    if(board.authorId !== identity.subject) {
+      throw new Error("Unauthorized")
+    }
+
+    if(!title.trim()) {
+      throw new Error("Title cannot be empty")
+    }
+
+    if(title.length > 100) {
+      throw new Error("Title cannot be longer than 100 characters")
+    } 
+    
+    await ctx.db.patch(id, {
+      title
+    })
+  }
+})
